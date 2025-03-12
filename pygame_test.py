@@ -3,17 +3,17 @@ import numpy as np
 from pygame.locals import *
 
 # Define physical constants in SI units
-M = 1.0  
-m = 0.5  
+M = 5.0  
+m = 1.0
 g = -9.81  
-l = 0.5  
+l = 2.0  
 dt = 0.01  
 cart_width = 0.3  
 cart_height = 0.1  
 cart_y_coord = 800
 
 # Define scaling factors to convert SI units to pixels
-scale_factor = 600  
+scale_factor = 300  
 
 # Pygame settings
 WIDTH = 1000
@@ -23,19 +23,22 @@ FPS = 1 / dt
 # Initial conditions in SI units
 x1_SI = 0.0  
 theta_SI = np.pi  
-x1_dot_SI = 0.0  
+x1_dot_SI = 0.0
 theta_dot_SI = 0.0  
 x1_ddot_SI = 0.0
 theta_ddot_SI = 0.0
 x1_ref_SI = 0.0
 prev_x_SI = 0.0
 
-K = 1000
-D = 0.01
+K = 200
+D = 10
+
+d_cart = 1.0 # Cart Damping
+d_theta = 3.0
 
 # Score variables
 score = 0.0
-high_score = 0.0  
+high_score = 0.0
 
 # Game state variables
 game_over = False  
@@ -52,14 +55,16 @@ font = pygame.font.Font(None, 36)
 def convert_to_pixels(value, scale_factor):
     return int(value * scale_factor)
 
-def update_physics(theta, theta_dot, F):
+def update_physics(theta, theta_dot, x1_dot, F):
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
-    denominator = M + m - m * sin_theta ** 2
+    # denominator = M + m - m * sin_theta ** 2
+    denominator = M + m - m * cos_theta ** 2
 
-    theta_ddot = (-m * l * cos_theta * sin_theta * theta_dot ** 2 + F * cos_theta + (M + m) * g * sin_theta) / (3 * l * denominator)
-    x1_ddot = (-m * l * sin_theta * theta_dot ** 2 + m * g * cos_theta * sin_theta + F) / denominator
-
+    # theta_ddot = (-m * l * cos_theta * sin_theta * theta_dot ** 2 + F * cos_theta + (M + m) * g * sin_theta) / (3 * l * denominator)
+    # x1_ddot = (-m * l * sin_theta * theta_dot ** 2 + m * g * cos_theta * sin_theta + F) / denominator
+    theta_ddot = ((m + M ) * g * sin_theta - cos_theta * (m * l * theta_dot**2 * sin_theta - d_cart * x1_dot) + cos_theta * F - theta_dot * d_theta) / denominator
+    x1_ddot = (-m * g * cos_theta * sin_theta + m * l * theta_dot**2 * sin_theta - d_cart * x1_dot + F) / denominator 
     return x1_ddot, theta_ddot
 
 def draw_system(x1, theta, score, high_score, game_over):
@@ -101,6 +106,7 @@ def main():
                     theta_dot_SI = 0.0
                     x1_ddot_SI = 0.0
                     theta_ddot_SI = 0.0
+                    prev_x_SI = x1_ref_SI
                     score = 0.0  
                     simulation_time = 0.0  
                     game_over = False  
@@ -115,8 +121,8 @@ def main():
 
             x1_dot_SI = (x1_SI - prev_x_SI) / dt
             F = K * (x1_ref_SI - x1_SI) - D * x1_dot_SI
-
-            x1_ddot_SI, theta_ddot_SI = update_physics(theta_SI, theta_dot_SI, F)
+            print(F)
+            x1_ddot_SI, theta_ddot_SI = update_physics(theta_SI, theta_dot_SI, x1_dot_SI, F)
             
             x1_dot_SI += x1_ddot_SI * dt
             x1_SI += x1_dot_SI * dt
@@ -127,7 +133,7 @@ def main():
             
             # **Check if pendulum crosses the horizontal**
             if theta_SI <= np.pi / 2 or theta_SI >= 3 * np.pi / 2:
-                game_over = True
+                # game_over = True
                 print("GAME OVER! Pendulum fell past horizontal.")
 
             # **Score Calculation:**
@@ -142,7 +148,7 @@ def main():
                 print("GAME OVER! Time limit reached.")
 
             x1_pixels = convert_to_pixels(x1_SI, scale_factor)
-            print(x1_pixels + WIDTH // 2, theta_SI, score, high_score, game_over)
+
             draw_system(x1_pixels + WIDTH / 2, theta_SI, score, high_score, game_over)
             pygame.display.flip()
 
