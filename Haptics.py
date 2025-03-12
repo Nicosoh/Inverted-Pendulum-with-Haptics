@@ -96,16 +96,12 @@ class PA:
         try:
             # Try to receive data from MPC
             data, addr = self.recv_sock.recvfrom(1024)
-            message = json.loads(data.decode('utf-8'))
-
-            # Extract received values
-            F = message["F"]
-            print(f"Received from MPC: F={F}")
-
-            # Simulated response (Replace with real haptic feedback)
-            response = {"ack": "Haptic received", "force_feedback": [0.1, 0.2]}
-            self.send_sock.sendto(json.dumps(response).encode('utf-8'), (self.UDP_IP, self.SEND_PORT))
-
+            fe = json.loads(data.decode())
+            # print(fe)
+            # Send position message
+            message = json.dumps(xh.tolist())  # Convert to JSON string
+            self.send_sock.sendto(message.encode(), (self.UDP_IP, self.SEND_PORT))
+            # print("Position sent: ", xh)
         except BlockingIOError:
             pass  # No data available, continue execution
 
