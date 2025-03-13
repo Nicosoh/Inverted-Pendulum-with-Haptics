@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 M = 0.5  
 m = 1.0  
 g = -9.81
-l = 2.0  
+l = 1.0  
 dt = 0.005  
 cart_width = 0.3  
 cart_height = 0.1
 cart_y_coord = 350
 
 # Define scaling factors to convert SI units to pixels
-scale_factor = 100
+scale_factor = 300
 
 # Pygame settings
 WIDTH = 600
@@ -38,11 +38,11 @@ theta_ddot_SI = 0.0
 x1_ref_SI = 0.0
 prev_x_SI = 0.0
 
-K = 800
-D = 1
+K = 4000
+D = 10
 
-d_cart = 3.0 # Cart Damping
-d_theta = 8.0 # Pendulum Damping
+d_cart = 0.1 # Cart Damping
+d_theta = 0.5 # Pendulum Damping
 
 # Score variables
 score = 0.0
@@ -348,6 +348,11 @@ def main():
 
                 x1_ddot_SI, theta_ddot_SI = update_physics(theta_SI, theta_dot_SI, x1_dot_SI, F)
                 
+                x1_dot_SI += x1_ddot_SI * dt
+                x1_SI += x1_dot_SI * dt
+                theta_dot_SI += theta_ddot_SI * dt
+                theta_SI += theta_dot_SI * dt
+
                 current_state = np.array([x1_SI, theta_SI, x1_dot_SI, theta_dot_SI])
                 ocp_solver.set(0, "lbx", current_state)
                 ocp_solver.set(0, "ubx", current_state)
@@ -357,16 +362,13 @@ def main():
                 
                 u = ocp_solver.get(0, "u")  # Get optimal control input
 
-                F_send = np.array([-u[0]/100, 0])
+                F_send = np.array([-u[0]/80, 0])
                 message = json.dumps(F_send.tolist())  # Convert to JSON string
                 send_sock.sendto(message.encode(), (UDP_IP, SEND_PORT))
 
                 # state.append([x1_SI, x1_ref_SI, x1_dot_SI, x1_ddot_SI, theta_SI, theta_dot_SI, theta_ddot_SI, F])
 
-                x1_dot_SI += x1_ddot_SI * dt
-                x1_SI += x1_dot_SI * dt
-                theta_dot_SI += theta_ddot_SI * dt
-                theta_SI += theta_dot_SI * dt
+
 
                 state.append([x1_SI, x1_ref_SI, x1_dot_SI, x1_ddot_SI, theta_SI, theta_dot_SI, theta_ddot_SI, F, u[0]])
 
