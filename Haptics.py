@@ -56,6 +56,9 @@ class PA:
 
         self.recv_sock.bind((self.UDP_IP, self.RECV_PORT))  # Bind receiving socket
         self.recv_sock.setblocking(False)  # Set non-blocking
+
+        self.filtered_fe = None
+        self.alpha = 0.8
         ##############################################
         #ADD things here that you want to run at the start of the program!
 
@@ -96,8 +99,15 @@ class PA:
         try:
             # Try to receive data from MPC
             data, addr = self.recv_sock.recvfrom(1024)
-            fe = json.loads(data.decode())
-            # print(fe)
+            fe = np.round(np.array(json.loads(data.decode())),2)
+            # print(type(fe))
+
+            # Apply Exponential Moving Average (EMA)
+            if self.filtered_fe is None:
+                self.filtered_fe = np.array(fe)  # Initialize on first read
+            else:
+                self.filtered_fe = self.alpha * np.array(fe) + (1 - self.alpha) * self.filtered_fe
+
             # Send position message
             message = json.dumps(xh.tolist())  # Convert to JSON string
             self.send_sock.sendto(message.encode(), (self.UDP_IP, self.SEND_PORT))

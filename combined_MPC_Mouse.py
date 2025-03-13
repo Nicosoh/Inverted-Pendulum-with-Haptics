@@ -8,13 +8,14 @@ import numpy as np
 from pygame.locals import *
 import socket
 import json
+import matplotlib.pyplot as plt
 
 # Define physical constants in SI units
 M = 0.5  
 m = 1.0  
-g = -9.81/5 
+g = -9.81
 l = 2.0  
-dt = 0.01  
+dt = 0.005  
 cart_width = 0.3  
 cart_height = 0.1
 cart_y_coord = 350
@@ -37,8 +38,11 @@ theta_ddot_SI = 0.0
 x1_ref_SI = 0.0
 prev_x_SI = 0.0
 
-K = 250
-D = 5
+K = 800
+D = 1
+
+d_cart = 3.0 # Cart Damping
+d_theta = 8.0 # Pendulum Damping
 
 # Score variables
 score = 0.0
@@ -47,6 +51,9 @@ high_score = 0.0
 # Game state variables
 game_over = False  
 simulation_time = 0.0  # Track elapsed time
+mpc_ready = True
+
+state = []
 
 # Initialize Pygame
 pygame.init()
@@ -78,16 +85,18 @@ def display_message(message):
 def convert_to_pixels(value, scale_factor):
     return value * scale_factor
 
-def update_physics(theta, theta_dot, F):
+def update_physics(theta, theta_dot, x1_dot, F):
     cos_theta = np.cos(theta)
     sin_theta = np.sin(theta)
     # denominator = M + m - m * sin_theta ** 2
+    denominator = M + m - m * cos_theta ** 2
 
     # theta_ddot = (-m * l * cos_theta * sin_theta * theta_dot ** 2 + F * cos_theta + (M + m) * g * sin_theta) / (l * denominator)
     # x1_ddot = (-m * l * sin_theta * theta_dot ** 2 + m * g * cos_theta * sin_theta + F) / denominator
 
-    theta_ddot = (F * cos_theta - m * l * theta_dot ** 2 * sin_theta * cos_theta + g * sin_theta) / (l * (M + m - m * cos_theta ** 2))
-    x1_ddot = (F + m * l * theta_ddot * cos_theta - m * l * theta_dot **2 * sin_theta) / ( (M + m))
+    theta_ddot = ((m + M ) * g * sin_theta - cos_theta * (m * l * theta_dot**2 * sin_theta - d_cart * x1_dot) + cos_theta * F - theta_dot * d_theta) / denominator / l
+    x1_ddot = (-m * g * cos_theta * sin_theta + m * l * theta_dot**2 * sin_theta - d_cart * x1_dot + F) / denominator 
+    
     return x1_ddot, theta_ddot
 
 def draw_system(x1, theta, score, high_score, game_over, fps, time_left):
@@ -126,7 +135,7 @@ def setup_mpc(x0, Fmax, N_horizon, Tf, RTI=False):
     ocp = AcadosOcp()
 
     # Set the model (pendulum)
-    model = export_pendulum_ode_model()
+    model = export_pendulum_ode_model(M, m ,g, l, d_cart, d_theta)
     ocp.model = model
 
     nx = model.x.rows()
@@ -138,7 +147,7 @@ def setup_mpc(x0, Fmax, N_horizon, Tf, RTI=False):
     ocp.cost.cost_type = 'NONLINEAR_LS'
     ocp.cost.cost_type_e = 'NONLINEAR_LS'
 
-    Q_mat = 2 * np.diag([1e3, 1e3, 1e-2, 1e-2])
+    Q_mat = 2 * np.diag([1e1, 1e3, 1e-2, 1e-2])
     R_mat = 2 * np.diag([1e-2])
     from scipy.linalg import block_diag  # Block-diagonal weight matrix
     ocp.cost.W = block_diag(Q_mat, R_mat)
@@ -188,9 +197,74 @@ def setup_mpc(x0, Fmax, N_horizon, Tf, RTI=False):
 
     return acados_ocp_solver, acados_integrator
 
+def plot_states(state, dt):
+    """ Plots the recorded states and force over time. """
+    state = np.array(state)  # Convert list to NumPy array
+    num_vars = 9  # Now includes force
+
+    if state.shape[1] != num_vars:
+        print("Warning: State array size mismatch!")
+        return
+
+    # Extract individual states
+    x1_SI = state[:, 0]         # Cart Position
+    x1_ref_SI = state[:, 1]     # Reference Position
+    x1_dot_SI = state[:, 2]     # Cart Velocity
+    x1_ddot_SI = state[:, 3]    # Cart Acceleration
+    theta_SI = state[:, 4] / np.pi * 180       # Pendulum Angle (degrees)
+    theta_dot_SI = state[:, 5] / np.pi * 180   # Angular Velocity (deg/s)
+    theta_ddot_SI = state[:, 6] / np.pi * 180  # Angular Acceleration (deg/s²)
+    force_SI = state[:, 7]      # Applied Force
+    MPC_output = state[:, 8]/100
+
+    time = np.arange(len(x1_SI)) * dt  # Create time array
+
+    # --- Plot ---
+    fig, axs = plt.subplots(8, 1, figsize=(10, 18), sharex=True)
+
+    axs[0].plot(time, x1_SI, label="Cart Position (m)")
+    axs[0].plot(time, x1_ref_SI, '--', label="Reference Position", alpha=0.7)
+    axs[0].set_ylabel("Position (m)")
+    axs[0].grid()
+
+    axs[1].plot(time, theta_SI, label="Pendulum Angle (°)", color='orange')
+    axs[1].axhline(y=180, linestyle="--", color="gray", label="180° (π rad)")
+    axs[1].set_ylabel("Angle (°)")
+    axs[1].grid()
+
+    axs[2].plot(time, x1_dot_SI, label="Cart Velocity (m/s)", color='green')
+    axs[2].set_ylabel("Velocity (m/s)")
+    axs[2].grid()
+
+    axs[3].plot(time, x1_ddot_SI, label="Cart Acceleration (m/s²)", color='blue')
+    axs[3].set_ylabel("Acceleration (m/s²)")
+    axs[3].grid()
+
+    axs[4].plot(time, theta_dot_SI, label="Pendulum Angular Velocity (°/s)", color='red')
+    axs[4].set_ylabel("Angular Vel (°/s)")
+    axs[4].grid()
+
+    axs[5].plot(time, theta_ddot_SI, label="Pendulum Angular Acceleration (°/s²)", color='brown')
+    axs[5].set_ylabel("Angular Accel (°/s²)")
+    axs[5].grid()
+
+    axs[6].plot(time, force_SI, label="Applied Force (N)", color='purple')
+    axs[6].axhline(y=0, linestyle="--", color="gray", label="Zero Force")
+    axs[6].set_xlabel("Time (s)")
+    axs[6].set_ylabel("Force (N)")
+    axs[6].grid()
+
+    axs[7].plot(time, MPC_output, label="MPC Output (N)", color='blue')
+    axs[7].axhline(y=0, linestyle="--", color="gray", label="Zero Force")
+    axs[7].set_xlabel("Time (s)")
+    axs[7].set_ylabel("Force (N)")
+    axs[7].grid()
+
+    plt.suptitle("System States and Applied Force Over Time")
+    plt.show()
 
 def main():
-    global x1_SI, theta_SI, x1_dot_SI, theta_dot_SI, prev_x_SI, score, high_score, game_over, simulation_time
+    global x1_SI, theta_SI, x1_dot_SI, theta_dot_SI, prev_x_SI, score, high_score, game_over, simulation_time, mpc_ready
     running = True
     simulation_running = False
 
@@ -198,9 +272,9 @@ def main():
     display_message("Initializing MPC... Please wait.")
 
     x0 = np.array([0.0, 0.0, 0.0, 0.0])  # Initial state
-    Fmax = 80
-    Tf = 0.6
-    N_horizon = 60
+    Fmax = 400
+    N_horizon = 30
+    Tf = dt * N_horizon
     assert(Tf/N_horizon == dt)
     
     F_send = np.array([0, 0])
@@ -220,49 +294,59 @@ def main():
                 running = False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_r:
-                    x1_SI = x1_ref_SI
-                    prev_x_SI = x1_ref_SI
-                    theta_SI = np.pi
+                    # Show loading message
+                    display_message("Rebuilding MPC... Please wait.")
+
+                    # Reset all simulation variables
+                    
                     x1_dot_SI = 0.0
-                    theta_dot_SI = 0.0
                     x1_ddot_SI = 0.0
+                    theta_SI = np.pi
+                    theta_dot_SI = 0.0
                     theta_ddot_SI = 0.0
                     score = 0.0  
                     simulation_time = 0.0  
-                    game_over = False  
+                    game_over = False
+
+                    # Set flag to prevent simulation updates
+                    mpc_ready = False  
+
+                    message = json.dumps([0, 0])  # Reset forces
+                    send_sock.sendto(message.encode(), (UDP_IP, SEND_PORT))
+
+                    data, addr = recv_sock.recvfrom(1024)
+                    position, _ = json.loads(data.decode())
+
+                    x1_ref_SI = (position - WIDTH // 2) / scale_factor
+                    prev_x_SI = x1_ref_SI
+
+                    # Rebuild the MPC model
+                    x0 = np.array([x1_ref_SI, np.pi, 0.0, 0.0])  # Reset initial state
+                    ocp_solver, integrator = setup_mpc(x0, Fmax, N_horizon, Tf, RTI=True)
+
+                    # Set flag to indicate MPC is ready
+                    mpc_ready = True  
+
+                    # Show message to press 'E' to continue
+                    display_message("Press 'E' to start.")
                 if event.key == pygame.K_q:
                     running = False
-                if event.key == pygame.K_e and not game_over:
+                if event.key == pygame.K_e and mpc_ready and not game_over:
                     simulation_running = True
-                    message = json.dumps(F_send.tolist())  # Convert to JSON string
+                    message = json.dumps([0, 0])  # Reset forces
                     send_sock.sendto(message.encode(), (UDP_IP, SEND_PORT))
 
         if simulation_running and not game_over:
-            # mouse_x, _ = pygame.mouse.get_pos()
-            # x1_ref_SI = (mouse_x - WIDTH // 2) / scale_factor
-
-            # --- Solve MPC ---
-            # current_state = np.array([x1_SI, theta_SI, x1_dot_SI, theta_dot_SI])
-            # ocp_solver.set(0, "lbx", current_state)
-            # ocp_solver.set(0, "ubx", current_state)
-            # status = ocp_solver.solve()
-            # if status != 0:
-            #     print("MPC solver returned status", status)
-            
-            # u = ocp_solver.get(0, "u")  # Get optimal control input
-
-            # Try to receive data from Haptic script (non-blocking)
             try:
                 data, addr = recv_sock.recvfrom(1024)
                 position, _ = json.loads(data.decode())
-                # print(f"Received from Haptic: {position}")
 
                 x1_ref_SI = (position - WIDTH // 2) / scale_factor
 
                 x1_dot_SI = (x1_SI - prev_x_SI) / dt
                 F = K * (x1_ref_SI - x1_SI) - D * x1_dot_SI
 
-                x1_ddot_SI, theta_ddot_SI = update_physics(theta_SI, theta_dot_SI, F)
+                x1_ddot_SI, theta_ddot_SI = update_physics(theta_SI, theta_dot_SI, x1_dot_SI, F)
                 
                 current_state = np.array([x1_SI, theta_SI, x1_dot_SI, theta_dot_SI])
                 ocp_solver.set(0, "lbx", current_state)
@@ -273,30 +357,22 @@ def main():
                 
                 u = ocp_solver.get(0, "u")  # Get optimal control input
 
-                F_send = np.array([-u[0]/40, 0])
+                F_send = np.array([-u[0]/100, 0])
                 message = json.dumps(F_send.tolist())  # Convert to JSON string
                 send_sock.sendto(message.encode(), (UDP_IP, SEND_PORT))
+
+                # state.append([x1_SI, x1_ref_SI, x1_dot_SI, x1_ddot_SI, theta_SI, theta_dot_SI, theta_ddot_SI, F])
 
                 x1_dot_SI += x1_ddot_SI * dt
                 x1_SI += x1_dot_SI * dt
                 theta_dot_SI += theta_ddot_SI * dt
                 theta_SI += theta_dot_SI * dt
 
+                state.append([x1_SI, x1_ref_SI, x1_dot_SI, x1_ddot_SI, theta_SI, theta_dot_SI, theta_ddot_SI, F, u[0]])
+
                 prev_x_SI = x1_SI
             except BlockingIOError:
                 pass  # No data available, continue execution
-
-            # x1_dot_SI = (x1_SI - prev_x_SI) / dt
-            # F = K * (x1_ref_SI - x1_SI) - D * x1_dot_SI
-
-            # x1_ddot_SI, theta_ddot_SI = update_physics(theta_SI, theta_dot_SI, F)
-            
-            # x1_dot_SI += x1_ddot_SI * dt
-            # x1_SI += x1_dot_SI * dt
-            # theta_dot_SI += theta_ddot_SI * dt
-            # theta_SI += theta_dot_SI * dt
-
-            # prev_x_SI = x1_SI
             
             # **Check if pendulum crosses the horizontal**
             if theta_SI <= np.pi / 2 or theta_SI >= 3 * np.pi / 2:
@@ -326,6 +402,7 @@ def main():
             clock.tick(FPS)
 
     pygame.quit()
+    plot_states(state, dt)
 
 if __name__ == '__main__':
     main()
