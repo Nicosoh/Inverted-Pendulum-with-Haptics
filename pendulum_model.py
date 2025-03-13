@@ -31,15 +31,9 @@
 from acados_template import AcadosModel
 from casadi import SX, vertcat, sin, cos
 
-def export_pendulum_ode_model() -> AcadosModel:
+def export_pendulum_ode_model(M, m ,g, l, d_cart, d_theta) -> AcadosModel:
 
     model_name = 'pendulum_ode'
-
-    # constants
-    M = 1.0 # mass of the cart [kg] -> now estimated
-    m = 0.5 # mass of the ball [kg]
-    g = 9.81 # gravity constant [m/s^2]
-    l = 0.5 # length of the rod [m]
 
     # set up states & controls
     x1      = SX.sym('x1')
@@ -63,12 +57,19 @@ def export_pendulum_ode_model() -> AcadosModel:
     # dynamics
     cos_theta = cos(theta)
     sin_theta = sin(theta)
-    denominator = M + m - m*sin_theta*sin_theta
+    denominator = M + m - m * cos_theta ** 2
+    # denominator = M + m - m * sin_theta ** 2
     f_expl = vertcat(v1,
-                     dtheta,
-                     (-m*l*sin_theta*dtheta*dtheta + m*g*cos_theta*sin_theta+F)/denominator,
-                     (-m*l*cos_theta*sin_theta*dtheta*dtheta + F*cos_theta+(M+m)*g*sin_theta)/(3*l*denominator)
-                     )
+                    dtheta,
+                    (-m * g * cos_theta * sin_theta + m * l * theta_dot**2 * sin_theta - d_cart * x1_dot + F) / denominator,
+                    ((m + M ) * g * sin_theta - cos_theta * (m * l * theta_dot**2 * sin_theta - d_cart * x1_dot) + cos_theta * F - theta_dot * d_theta) / denominator / l
+                    )
+    
+    # f_expl = vertcat(v1,
+    #                 dtheta,
+    #                 (-m * l * sin_theta * theta_dot ** 2 + m * g * cos_theta * sin_theta + F) / denominator,
+    #                 (-m * l * cos_theta * sin_theta * theta_dot ** 2 + F * cos_theta + (M + m) * g * sin_theta) / (l * denominator)
+    #                 )
 
     f_impl = xdot - f_expl
 
@@ -87,4 +88,3 @@ def export_pendulum_ode_model() -> AcadosModel:
     model.t_label = '$t$ [s]'
 
     return model
-

@@ -5,7 +5,7 @@ from pygame.locals import *
 # Define physical constants in SI units
 M = 5.0  
 m = 1.0
-g = -9.81  
+g = -9.81/3
 l = 2.0  
 dt = 0.01  
 cart_width = 0.3  
@@ -34,7 +34,7 @@ K = 200
 D = 10
 
 d_cart = 1.0 # Cart Damping
-d_theta = 3.0
+d_theta = 10.0
 
 # Score variables
 score = 0.0
@@ -63,7 +63,7 @@ def update_physics(theta, theta_dot, x1_dot, F):
 
     # theta_ddot = (-m * l * cos_theta * sin_theta * theta_dot ** 2 + F * cos_theta + (M + m) * g * sin_theta) / (3 * l * denominator)
     # x1_ddot = (-m * l * sin_theta * theta_dot ** 2 + m * g * cos_theta * sin_theta + F) / denominator
-    theta_ddot = ((m + M ) * g * sin_theta - cos_theta * (m * l * theta_dot**2 * sin_theta - d_cart * x1_dot) + cos_theta * F - theta_dot * d_theta) / denominator
+    theta_ddot = ((m + M ) * g * sin_theta - cos_theta * (m * l * theta_dot**2 * sin_theta - d_cart * x1_dot) + cos_theta * F - theta_dot * d_theta) / denominator / l
     x1_ddot = (-m * g * cos_theta * sin_theta + m * l * theta_dot**2 * sin_theta - d_cart * x1_dot + F) / denominator 
     return x1_ddot, theta_ddot
 
@@ -121,7 +121,7 @@ def main():
 
             x1_dot_SI = (x1_SI - prev_x_SI) / dt
             F = K * (x1_ref_SI - x1_SI) - D * x1_dot_SI
-            print(F)
+            # print(F)
             x1_ddot_SI, theta_ddot_SI = update_physics(theta_SI, theta_dot_SI, x1_dot_SI, F)
             
             x1_dot_SI += x1_ddot_SI * dt
@@ -137,7 +137,7 @@ def main():
                 print("GAME OVER! Pendulum fell past horizontal.")
 
             # **Score Calculation:**
-            score += dt * (1 - abs(np.pi - theta_SI) / np.pi)  
+            score += dt * (1 - 5 * abs(np.pi - theta_SI) / np.pi)  
             if score > high_score:
                 high_score = score  
 

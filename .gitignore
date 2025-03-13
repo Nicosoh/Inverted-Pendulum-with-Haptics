@@ -1,4 +1,6 @@
 c_generated_code
 minimal_example_closed_loop.py
-Test/minimal_example_ocp.py
+minimal_example_ocp.py
 __pycache__
+*.json
+pend_MPC.py
