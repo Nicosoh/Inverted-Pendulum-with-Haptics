@@ -7,6 +7,11 @@ To reduce frustration and tailor difficulty for different users, Model Predictiv
 
 Alternative simpler methods were also tested, such as applying force output based on the relative angle away from vertical. However, this only guided the user in the general direction without conveying the intuition of other states. By utilizing MPC, the cost function can be fine-tuned to consider not only the pendulum's angle but also the cart's position, leading to more effective assistance.
 
+## Game's Interface
+<p align="center">
+  <img src="images/game.png" alt="Game Interface" width="500">
+</p>
+
 ## Requirements
 This implementation requires Linux and assumes that `acados` is already set up. For installation details on `acados`, refer to their [GitHub page](https://github.com/acados/acados).
 
@@ -41,6 +46,6 @@ The simulation will work without a haptic device, but there will be no force fee
 - Scoring is based on the angle of the pendulum and accumulated over time.
 
 ## Haptic Interface
-![Alt text](images/haptics.png)
-## Game's Interface
-![Alt text](images/game.png)
+<p align="center">
+  <img src="images/haptics.png" alt="Game Interface" width="500">
+</p>
