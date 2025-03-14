@@ -39,3 +39,8 @@ The simulation will work without a haptic device, but there will be no force fee
 - MPC computes optimal control inputs in real time to help the user maintain balance.
 - A haptic device (if available) provides feedback force to guide the user.
 - Scoring is based on the angle of the pendulum and accumulated over time.
+
+## Haptic Interface
+![Alt text](images/haptics.png)
+## Game's Interface
+![Alt text](images/game.png)
