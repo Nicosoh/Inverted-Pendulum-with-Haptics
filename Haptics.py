@@ -100,6 +100,7 @@ class PA:
             # Try to receive data from MPC
             data, addr = self.recv_sock.recvfrom(1024)
             fe = np.round(np.array(json.loads(data.decode())),2)
+            print(fe)
             # print(type(fe))
 
             # Apply Exponential Moving Average (EMA)
