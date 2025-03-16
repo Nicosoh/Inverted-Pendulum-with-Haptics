@@ -9,7 +9,6 @@ class PendulumSimulator:
     def reset(self):
         self.x, self.x_dot, self.x_ddot = 0.0, 0.0, 0.0
         self.theta, self.theta_dot, self.theta_ddot = np.pi, 0.0, 0.0
-        self.score = 0.0
 
     
     def update_physics(self, F):

@@ -6,7 +6,7 @@ import numpy as np
 import pygame
 
 def reset_game():
-    global pendulum, time_left, score, state
+    global pendulum, time_left, score, mpc
 
     # Reset pendulum state
     pendulum = PendulumSimulator(M, m, g, l, dt, d_cart, d_theta)
@@ -14,7 +14,12 @@ def reset_game():
     # Reset time and score
     time_left = 15.0  # Reset time
     score = 0.0
-    state = []  # Clear state tracking
+
+    # Delete the existing MPC object
+    del mpc
+
+    # Reinitialize the MPC controller
+    mpc = MPCController(M, m, g, l, dt, d_cart, d_theta, Fmax, Tf, N_horizon)
 
 # Initialize pygame
 pygame.init()
@@ -73,12 +78,12 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
 # Initialize screen manager
-screen_manager = ScreenManager(network)  # No need for a game instance
-start_screen = StartPage(screen_manager)  # No game instance needed
-game_screen = GameScreen(screen_manager,scale_factor, cart_y_coord)  # No game instance needed
-game_over_screen = GameOverScreen(screen_manager, reset_game)   # Create game over screen
+screen_manager = ScreenManager(network)
+start_screen = StartPage(screen_manager)
+game_screen = GameScreen(screen_manager,scale_factor, cart_y_coord)
+game_over_screen = GameOverScreen(screen_manager, reset_game)
 
-screen_manager.add_screen("game_over", game_over_screen)  # Add to screen manager
+screen_manager.add_screen("game_over", game_over_screen)
 screen_manager.add_screen("start", start_screen)
 screen_manager.add_screen("game", game_screen)
 
@@ -98,32 +103,40 @@ while running:
     if isinstance(screen_manager.current_screen, GameScreen):
         if time_left > 0:
             time_left -= dt  # Countdown
+            if pendulum.theta >= np.pi / 2 and pendulum.theta <= 3 * np.pi / 2:
+                position = network.receive_position()
+                if position is not None:
+                    mpc_enabled = start_screen.mpc_enabled  
+                    x_ref = (position - WIDTH // 2) / scale_factor
+                    x, x_dot, theta = pendulum.x, pendulum.x_dot, pendulum.theta
 
-            # Game logic continues
-            position = network.receive_position()
-            if position is not None:
-                mpc_enabled = start_screen.mpc_enabled  
-                x_ref = (position - WIDTH // 2) / scale_factor
-                x, x_dot, theta = pendulum.x, pendulum.x_dot, pendulum.theta
+                    F = K * (x_ref - x) - D * x_dot
+                    pendulum.update_physics(F)
 
-                F = K * (x_ref - x) - D * x_dot
-                pendulum.update_physics(F)
+                    if mpc_enabled:
+                        u = mpc.compute_control(np.array([pendulum.x, pendulum.theta, pendulum.x_dot, pendulum.theta_dot]))
+                        u = np.array([-u[0] / force_scaling, 0])
+                    else:
+                        u = np.array([0, 0])
 
-                if mpc_enabled:
-                    u = mpc.compute_control(np.array([pendulum.x, pendulum.theta, pendulum.x_dot, pendulum.theta_dot]))
-                    u = np.array([-u[0] / force_scaling, 0])
-                else:
-                    u = np.array([0, 0])
+                    network.send_force(u)
+                    state += [pendulum.x, pendulum.x_dot, pendulum.x_ddot, pendulum.theta, pendulum.theta_dot, pendulum.theta_ddot]
 
-                network.send_force(u)
-                state += [pendulum.x, pendulum.x_dot, pendulum.x_ddot, pendulum.theta, pendulum.theta_dot, pendulum.theta_ddot]
-                fps = clock.get_fps()
-                screen_manager.draw(screen, x, theta, score, high_score, fps, time_left)
+                    deviation = abs(np.pi - pendulum.theta)
+                    score += np.exp(-0.001 * deviation)
+
+                    if score > high_score:
+                        high_score = score
+
+                    fps = clock.get_fps()
+                    screen_manager.draw(screen, x, theta, score, high_score, fps, time_left)
+            else:
+                screen_manager.set_screen("game_over")  # Switch to Game Over
         else:
             screen_manager.set_screen("game_over")  # Switch to Game Over
 
     elif isinstance(screen_manager.current_screen, GameOverScreen):
-        screen_manager.draw(screen)  # Draw Game Over screen
+        screen_manager.draw(screen, score, high_score)  # Draw Game Over screen
 
     else:
         screen_manager.draw(screen)

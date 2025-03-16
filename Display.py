@@ -107,8 +107,8 @@ class GameScreen:
         pygame.draw.rect(screen, (0, 0, 255), (x1_pixels - cart_width / 2, self.cart_y_coord, cart_width, cart_height))
 
         # Display text
-        score_text = self.font.render(f"Score: {score:.2f}", True, (0, 0, 0))
-        high_score_text = self.font.render(f"High Score: {high_score:.2f}", True, (0, 0, 0))
+        score_text = self.font.render(f"Score: {score:.0f}", True, (0, 0, 0))
+        high_score_text = self.font.render(f"High Score: {high_score:.0f}", True, (0, 0, 0))
         fps_text = self.font.render(f"FPS: {fps:.1f}", True, (0, 0, 0))
         timer_text = self.font.render(f"Time Left: {time_left:.1f} s", True, (255, 0, 0))
 
@@ -136,7 +136,7 @@ class GameOverScreen:
                     return False  
         return True  
 
-    def draw(self, screen):
+    def draw(self, screen, score, high_score):
         screen.fill((0, 0, 0))  # Black background
         screen_width, screen_height = screen.get_size()
 
@@ -144,6 +144,8 @@ class GameOverScreen:
         game_over_text = self.font.render("Game Over!", True, (255, 0, 0))
         restart_text = self.font.render("Press 'R' to Restart", True, (200, 200, 200))
         quit_text = self.font.render("Press 'Q' to Quit", True, (200, 200, 200))
+        score_text = self.font.render(f"Score: {score:.0f}", True, (200, 200, 200))
+        high_score_text = self.font.render(f"High Score: {high_score:.0f}", True, (200, 200, 200))
 
         # Get centered positions
         game_over_rect = game_over_text.get_rect(center=(screen_width // 2, 150))
@@ -154,3 +156,5 @@ class GameOverScreen:
         screen.blit(game_over_text, game_over_rect)
         screen.blit(restart_text, restart_rect)
         screen.blit(quit_text, quit_rect)
+        screen.blit(score_text, (20, 20))
+        screen.blit(high_score_text, (20, 50))
