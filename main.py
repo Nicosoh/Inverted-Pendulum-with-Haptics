@@ -21,6 +21,9 @@ def reset_game():
     # Reinitialize the MPC controller
     mpc = MPCController(M, m, g, l, dt, d_cart, d_theta, Fmax, Tf, N_horizon)
 
+    for _ in range(3):  
+        network.receive_position()
+
 # Initialize pygame
 pygame.init()
 
@@ -44,9 +47,17 @@ cart_y_coord = 350
 d_cart = 1.0 # Cart Damping
 d_theta = 0.3 # Pendulum Damping
 
+# Define Gaussian noise parameters
+noise_mean = 0  # Mean of the noise
+noise_std = 200  # Standard deviation of the noise
+
+# Initialize counter for random force application
+random_force_counter = 0
+random_force = 0
+
 # Impedance Controller
-K = 1000
-D = 30
+K = 4000
+D = 50
 
 # Define scaling factors to convert SI units to pixels
 scale_factor = 300
@@ -110,7 +121,14 @@ while running:
                     x_ref = (position - WIDTH // 2) / scale_factor
                     x, x_dot, theta = pendulum.x, pendulum.x_dot, pendulum.theta
 
-                    F = K * (x_ref - x) - D * x_dot
+                     # Apply Gaussian random force
+                    if random_force_counter >= 400:
+                        random_force = np.random.normal(noise_mean, noise_std)
+                        random_force_counter = 0  # Reset counter
+                    else:
+                        random_force_counter += 1  # Increment counter
+
+                    F = K * (x_ref - x) - D * x_dot + random_force
                     pendulum.update_physics(F)
 
                     if mpc_enabled:
@@ -123,7 +141,7 @@ while running:
                     state += [pendulum.x, pendulum.x_dot, pendulum.x_ddot, pendulum.theta, pendulum.theta_dot, pendulum.theta_ddot]
 
                     deviation = abs(np.pi - pendulum.theta)
-                    score += np.exp(-0.001 * deviation)
+                    score += np.exp(-50 * deviation)
 
                     if score > high_score:
                         high_score = score

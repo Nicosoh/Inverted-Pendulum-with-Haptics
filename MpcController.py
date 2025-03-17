@@ -2,6 +2,7 @@ from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
 from pendulum_model import export_pendulum_ode_model
 from casadi import vertcat
 import numpy as np
+from scipy.linalg import block_diag  # Block-diagonal weight matrix
 
 class MPCController:
     def __init__(self, M, m, g, l, dt, d_cart, d_theta, Fmax, Tf, N_horizon):
@@ -30,7 +31,6 @@ class MPCController:
 
         Q_mat = 2 * np.diag([1e1, 1e3, 1e-2, 1e-2])
         R_mat = 2 * np.diag([1e-2])
-        from scipy.linalg import block_diag  # Block-diagonal weight matrix
         ocp.cost.W = block_diag(Q_mat, R_mat)
         ocp.cost.W_e = Q_mat
 
