@@ -151,17 +151,21 @@ while running:
             if pendulum.theta >= np.pi / 2 and pendulum.theta <= 3 * np.pi / 2:
                 position = network.receive_position()
                 if position is not None:
-                    mpc_enabled = start_screen.mpc_enabled  
+                    mpc_enabled = start_screen.mpc_enabled
+                    disturbance_enbaled = start_screen.disturbance_enabled
                     x_ref = (position - WIDTH // 2) / scale_factor
                     x, x_dot, theta = pendulum.x, pendulum.x_dot, pendulum.theta
-
-                     # Apply Gaussian random force
-                    if random_force_counter >= 400:
-                        random_force = np.random.normal(noise_mean, noise_std)
-                        random_force_counter = 0  # Reset counter
+                    
+                    if disturbance_enbaled:
+                        # Apply Gaussian random force
+                        if random_force_counter >= 400:
+                            random_force = np.random.normal(noise_mean, noise_std)
+                            random_force_counter = 0  # Reset counter
+                        else:
+                            random_force = 0
+                            random_force_counter += 1  # Increment counter
                     else:
                         random_force = 0
-                        random_force_counter += 1  # Increment counter
 
                     F = K * (x_ref - x) - D * x_dot + random_force
                     pendulum.update_physics(F)

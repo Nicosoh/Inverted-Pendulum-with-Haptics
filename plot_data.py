@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from tkinter import Tk, Checkbutton, Button
 from tkinter import BooleanVar
 import matplotlib.cm as cm
+import re  # Import regex module to extract numbers from filenames
 
 def plot_selected_columns(filenames, dt, selected_columns):
     # Create a figure for plotting
@@ -14,7 +15,7 @@ def plot_selected_columns(filenames, dt, selected_columns):
         axs = [axs]
 
     # Generate a colormap (e.g., 'plasma') for progressively lighter to darker colors
-    colormap = cm.cividis  # You can change this to other colormaps like 'inferno', 'cividis', etc.
+    colormap = cm.Reds  # You can change this to other colormaps like 'inferno', 'cividis', etc.
     num_files = len(filenames)
     
     # Generate a list of colors for the files, progressing from light to dark
@@ -107,8 +108,9 @@ def show_checkboxes():
     # Specify the path to your folder containing the .csv files
     folder_path = 'saved_states'  # Modify this to the correct folder path
 
-    # Get the list of .csv files in the specified folder and sort them alphabetically
-    csv_files = sorted([f for f in os.listdir(folder_path) if f.endswith('.csv')])
+    # Get the list of .csv files in the specified folder and sort them numerically
+    csv_files = sorted([f for f in os.listdir(folder_path) if f.endswith('.csv')],
+                       key=lambda x: int(re.search(r'(\d+)', x).group()))  # Sort by number in filename
 
     if not csv_files:
         print("No CSV files found in the specified folder.")

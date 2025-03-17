@@ -34,6 +34,7 @@ class StartPage:
         self.font = pygame.font.Font(None, 36)
         self.mpc_enabled = True  # Default state of MPC
         self.screen_manager = screen_manager  # Store reference
+        self.disturbance_enabled = False
     def handle_events(self, events):
         for event in events:
             if event.type == pygame.QUIT:
@@ -43,6 +44,8 @@ class StartPage:
                     self.screen_manager.set_screen("game")  # Start game
                 elif event.key == pygame.K_m:
                     self.mpc_enabled = not self.mpc_enabled  # Toggle MPC
+                elif event.key == pygame.K_d:
+                    self.disturbance_enabled = not self.disturbance_enabled  # Toggle disturbance
         return True  # Continue running
 
     def draw(self, screen):
@@ -53,19 +56,26 @@ class StartPage:
         title = self.font.render("Welcome to the Inverted Pendulum", True, (255, 255, 255))
         instruction1 = self.font.render("Press 'E' to Start the Game", True, (200, 200, 200))
         instruction2 = self.font.render("Press 'M' to Toggle MPC On/Off", True, (200, 200, 200))
+        instruction3 = self.font.render("Press 'D' to Toggle Disturbance On/Off", True, (200, 200, 200))
         mpc_status = self.font.render(f"MPC: {'Enabled' if self.mpc_enabled else 'Disabled'}", True, (255, 255, 0))
+        disturbance_status = self.font.render(f"Disturbance: {'Enabled' if self.disturbance_enabled else 'Disabled'}", True, (255, 255, 0))
 
         # Get centered positions
-        title_rect = title.get_rect(center=(screen_width // 2, 100))
-        instruction1_rect = instruction1.get_rect(center=(screen_width // 2, 200))
-        instruction2_rect = instruction2.get_rect(center=(screen_width // 2, 250))
-        mpc_status_rect = mpc_status.get_rect(center=(screen_width // 2, 300))
+        title_rect = title.get_rect(center=(screen_width // 2, 20))
+        instruction1_rect = instruction1.get_rect(center=(screen_width // 2, 100))
+        instruction2_rect = instruction2.get_rect(center=(screen_width // 2, 150))
+        instruction3_rect = instruction3.get_rect(center=(screen_width // 2, 200))
+        mpc_status_rect = mpc_status.get_rect(center=(screen_width // 2, 250))
+        disturbance_status_rect = disturbance_status.get_rect(center=(screen_width // 2, 300))
 
         # Draw text
         screen.blit(title, title_rect)
         screen.blit(instruction1, instruction1_rect)
         screen.blit(instruction2, instruction2_rect)
+        screen.blit(instruction3, instruction3_rect)
         screen.blit(mpc_status, mpc_status_rect)
+        screen.blit(disturbance_status, disturbance_status_rect)
+
 
 
 class GameScreen:
