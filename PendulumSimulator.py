@@ -16,14 +16,14 @@ class PendulumSimulator:
         sin_theta = np.sin(self.theta)
         denominator = self.M + self.m - self.m * cos_theta ** 2
 
-        theta_ddot = ((self.m + self.M ) * self.g * sin_theta - cos_theta * 
+        self.theta_ddot = ((self.m + self.M ) * self.g * sin_theta - cos_theta * 
                       (self.m * self.l * self.theta_dot**2 * sin_theta - self.d_cart * self.x_dot) + 
                       cos_theta * F - self.theta_dot * self.d_theta) / denominator / self.l
         
-        x_ddot = (-self.m * self.g * cos_theta * sin_theta + self.m * self.l * self.theta_dot**2 * 
+        self.x_ddot = (-self.m * self.g * cos_theta * sin_theta + self.m * self.l * self.theta_dot**2 * 
                    sin_theta - self.d_cart * self.x_dot + F) / denominator
         
-        self.x_dot += x_ddot * self.dt
+        self.x_dot += self.x_ddot * self.dt
         self.x += self.x_dot * self.dt
-        self.theta_dot += theta_ddot * self.dt
+        self.theta_dot += self.theta_ddot * self.dt
         self.theta += self.theta_dot * self.dt

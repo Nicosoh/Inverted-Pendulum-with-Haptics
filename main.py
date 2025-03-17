@@ -4,9 +4,14 @@ from MpcController import MPCController
 from Display import ScreenManager, StartPage, GameScreen, GameOverScreen
 import numpy as np
 import pygame
+import pandas as pd
+import os
 
 def reset_game():
-    global pendulum, time_left, score, mpc
+    global pendulum, time_left, score, mpc, state
+    
+    # Reset the state array for the next round
+    state = []
 
     # Reset pendulum state
     pendulum = PendulumSimulator(M, m, g, l, dt, d_cart, d_theta)
@@ -23,6 +28,35 @@ def reset_game():
 
     for _ in range(3):  
         network.receive_position()
+
+def save_state_to_csv(state, base_filename="saved_states/states_Trial.csv"):
+    if not state:  # If state is empty, print a message and skip saving
+        print("State is empty, not saving to CSV.")
+        return
+    
+    # Convert the state to a Pandas DataFrame
+    # Assuming each entry in the state is a list or array of values
+    df = pd.DataFrame(state, columns=[
+        'x_ref', 'x', 'x_dot', 'x_ddot', 'theta', 'theta_dot', 'theta_ddot', 
+        'score', 'F', 'control_input', 'random_force', 'time_left'
+    ])
+
+    # Get the file extension and base name
+    base_filename, extension = os.path.splitext(base_filename)
+    
+    # Generate the initial filename
+    filename = f"{base_filename}_1{extension}"
+    
+    # Check if the file already exists and increment the filename if necessary
+    i = 1
+    while os.path.exists(filename):
+        filename = f"{base_filename}_{i}{extension}"
+        i += 1
+
+    # Save the DataFrame to CSV
+    df.to_csv(filename, index=False)
+    
+    print(f"State has been saved to {filename}")
 
 # Initialize pygame
 pygame.init()
@@ -126,6 +160,7 @@ while running:
                         random_force = np.random.normal(noise_mean, noise_std)
                         random_force_counter = 0  # Reset counter
                     else:
+                        random_force = 0
                         random_force_counter += 1  # Increment counter
 
                     F = K * (x_ref - x) - D * x_dot + random_force
@@ -138,7 +173,6 @@ while running:
                         u = np.array([0, 0])
 
                     network.send_force(u)
-                    state += [pendulum.x, pendulum.x_dot, pendulum.x_ddot, pendulum.theta, pendulum.theta_dot, pendulum.theta_ddot]
 
                     deviation = abs(np.pi - pendulum.theta)
                     score += np.exp(-50 * deviation)
@@ -146,11 +180,15 @@ while running:
                     if score > high_score:
                         high_score = score
 
+                    state.append([x_ref, pendulum.x, pendulum.x_dot, pendulum.x_ddot, pendulum.theta, pendulum.theta_dot, pendulum.theta_ddot, score, F, u[0], random_force, time_left])
+
                     fps = clock.get_fps()
                     screen_manager.draw(screen, x, theta, score, high_score, fps, time_left)
             else:
+                save_state_to_csv(state)
                 screen_manager.set_screen("game_over")  # Switch to Game Over
         else:
+            save_state_to_csv(state)
             screen_manager.set_screen("game_over")  # Switch to Game Over
 
     elif isinstance(screen_manager.current_screen, GameOverScreen):
