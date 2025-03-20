@@ -1,7 +1,7 @@
 # Inverted Pendulum with MPC-Aided Haptics
 
 ## Overview
-The motivation behind this project is the rehabilitation of motor skills. In this case, the inverted pendulum is used as a game, where the user moves the base of the pendulum left or right to balance the cart. 
+The motivation behind this project is the rehabilitation of motor skills. In this case, the inverted pendulum is used as a game, where the user moves the cart left or right to balance the pendulum. 
 
 To reduce frustration and tailor difficulty for different users, Model Predictive Control (MPC) is used to compute optimal control inputs. These control inputs are then fed back to the user through haptics. 
 
