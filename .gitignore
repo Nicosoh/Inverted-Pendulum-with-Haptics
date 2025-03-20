@@ -9,3 +9,5 @@ Combined_MPC_Final.py
 combined_MPC_Mouse.py
 pygame_test.py
 saved_states
+plot_scores.py
+plot_data.py
